@@ -175,8 +175,7 @@ class CAR(Platforms):
       ToyotaCarDocs("Toyota Highlander Hybrid 2017-19"),
     ],
     CarSpecs(mass=4516. * CV.LB_TO_KG, wheelbase=2.8194, steerRatio=16.0, tireStiffnessFactor=0.8),
-    dbc_dict('toyota_new_mc_pt_generated', 'toyota_adas'),
-#    dbc_dict('toyota_tnga_k_pt_generated', 'toyota_adas'),
+    dbc_dict('toyota_tnga_k_pt_generated', 'toyota_adas'),
     flags=ToyotaFlags.NO_STOP_TIMER | ToyotaFlags.SNG_WITHOUT_DSU,
   )
   TOYOTA_HIGHLANDER_TSS2 = ToyotaTSS2PlatformConfig(
