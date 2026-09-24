@@ -7,6 +7,14 @@ from opendbc.car.hyundai import hyundaicanfd, hyundaican
 from opendbc.car.hyundai.hyundaicanfd import CanBus
 from opendbc.car.hyundai.values import HyundaiFlags, Buttons, CarControllerParams, CAR
 from opendbc.car.interfaces import CarControllerBase
+from cereal import log
+import cereal.messaging as messaging
+
+JERKS_CLIP = [
+  log.LongitudinalPersonality.relaxed: (0.009, 0.020, 1.2),
+  log.LongitudinalPersonality.aggressive: (0.025, 0.035, 3.0),
+  log.LongitudinalPersonality.standard: (0.015, 0.030, 2.0)
+]
 
 VisualAlert = structs.CarControl.HUDControl.VisualAlert
 LongCtrlState = structs.CarControl.Actuators.LongControlState
@@ -62,6 +70,10 @@ class CarController(CarControllerBase):
     self.last_button_frame = 0
     self.cancel_counter = 0
 
+    self.last_accel_request = 0.0
+    if CP.carFingerprint == CAR.KIA_NIRO_EV:
+      self.sm = messaging.SubMaster(['longitudinalPlan'])
+
   def update(self, CC, CS, now_nanos):
     actuators = CC.actuators
     hud_control = CC.hudControl
@@ -84,6 +96,21 @@ class CarController(CarControllerBase):
     accel = float(np.clip(actuators.accel, CarControllerParams.ACCEL_MIN, CarControllerParams.ACCEL_MAX))
     stopping = actuators.longControlState == LongCtrlState.stopping
     set_speed_in_units = hud_control.setSpeed * (CV.MS_TO_KPH if CS.is_metric else CV.MS_TO_MPH)
+
+    # Niro stuff
+    if self.CP.carFingerprint == CAR.KIA_NIRO_EV:
+      self.sm.update(0)
+      max_pos_jerk, max_neg_jerk, max_accel_clip = JERKS_CLIP[self.sm['longitudinalPlan'].personality]
+
+      delta_accel = accel - self.last_accel_request
+
+      if delta_accel > max_pos_jerk:
+        accel = self.last_accel_request + max_pos_jerk
+      elif delta_accel < -max_neg_jerk:
+        accel = self.last_accel_request - max_neg_jerk
+
+      accel = max(-3.5, min(accel, max_accel_clip))
+      self.last_accel_request = accel
 
     can_sends = []
 
